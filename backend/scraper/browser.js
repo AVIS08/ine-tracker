@@ -5,6 +5,7 @@
  */
 
 const { chromium } = require('playwright');
+const { execSync } = require('child_process');
 
 let browserInstance = null;
 
@@ -28,7 +29,23 @@ async function getBrowser() {
   }
 
   console.log(`[Browser] Launching Chromium (headless: ${BROWSER_OPTS.headless})...`);
-  browserInstance = await chromium.launch(BROWSER_OPTS);
+  
+  try {
+    browserInstance = await chromium.launch(BROWSER_OPTS);
+  } catch (err) {
+    if (err.message.includes("Executable doesn't exist") || err.message.includes("browserType.launch")) {
+      console.warn('[Browser] Chromium executable missing. Auto-installing Chromium binaries...');
+      try {
+        execSync('npx playwright install chromium', { stdio: 'inherit' });
+        browserInstance = await chromium.launch(BROWSER_OPTS);
+      } catch (installErr) {
+        console.error('[Browser] Failed to auto-install Chromium:', installErr.message);
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
 
   browserInstance.on('disconnected', () => {
     console.log('[Browser] Browser disconnected');
